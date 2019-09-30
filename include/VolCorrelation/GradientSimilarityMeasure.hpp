@@ -1,22 +1,10 @@
-/*
- * Usage:
- * GSIM::calculateSimilarity<float>(const std::vector<T *> fields,
-              uint32_t width,
-            uint32_t height,
-            uint32_t depth,
-            int sensitivity = 2);
- *
- * Return type:
- * std::vector<float>
- */
-
 #pragma once
 #include <cmath>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
-namespace GSIM {
+namespace VolCorrelation {
 
 template <typename T> struct Vec3 {
   T x, y, z;
@@ -25,7 +13,7 @@ template <typename T> struct Vec3 {
   auto norm() const -> T { return std::sqrt(x * x + y * y + z * z); }
 };
 
-template <typename ResultType = float>
+template <typename ResultType>
 auto calculateGradient(const ResultType *field, const Vec3<uint32_t> &pos,
                        const Vec3<uint32_t> dimensions, size_t index,
                        size_t offsetZ) -> Vec3<ResultType> {
@@ -88,7 +76,7 @@ auto calculateGradient(const ResultType *field, const Vec3<uint32_t> &pos,
   return gradient;
 }
 
-template <typename ResultType = float>
+template <typename ResultType>
 auto calculatePairSimilarity(const Vec3<ResultType> &gi,
                              const Vec3<ResultType> &gj, int sensitivity)
     -> ResultType {
@@ -115,8 +103,9 @@ auto calculatePairSimilarity(const Vec3<ResultType> &gi,
 }
 
 template <typename T, typename ResultType = float>
-auto calculateSimilarity(const std::vector<T *> fields, uint32_t width,
-                         uint32_t height, uint32_t depth, int sensitivity = 2)
+auto calculateGradientSimilarity(const std::vector<T *> fields, uint32_t width,
+                                 uint32_t height, uint32_t depth,
+                                 int sensitivity = 2)
     -> std::vector<ResultType> {
   using std::vector;
 
@@ -141,7 +130,7 @@ auto calculateSimilarity(const std::vector<T *> fields, uint32_t width,
     normalizeds.push_back(std::move(normalized));
   }
 
-  auto result = ector<ResultType>(size, 1.0);
+  auto result = vector<ResultType>(size, 1.0);
 
   for (auto i = 0ul; i < fields.size(); i++) {
     for (auto j = i + 1; j < fields.size(); j++) {
@@ -171,4 +160,4 @@ auto calculateSimilarity(const std::vector<T *> fields, uint32_t width,
   return result;
 }
 
-} // namespace GSIM
+} // namespace VolCorrelation

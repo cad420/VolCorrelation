@@ -5,7 +5,7 @@ target_sources(tests
   PRIVATE
     main.cpp
 )
-target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR}/include)
 # target_link_libraries(tests PRIVATE GTest::GTest GTest::Main)
 
 add_test(Basic tests)

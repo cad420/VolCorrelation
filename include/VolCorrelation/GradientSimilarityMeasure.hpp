@@ -6,12 +6,15 @@
 
 namespace VolCorrelation {
 
+#ifndef VolCorrelation_Vec3
+#define VolCorrelation_Vec3
 template <typename T> struct Vec3 {
   T x, y, z;
   Vec3() : x(0), y(0), z(0) {}
   Vec3(T a, T b, T c) : x(a), y(b), z(c) {}
   auto norm() const -> T { return std::sqrt(x * x + y * y + z * z); }
 };
+#endif
 
 template <typename ResultType>
 auto calculateGradient(const ResultType *field, const Vec3<uint32_t> &pos,

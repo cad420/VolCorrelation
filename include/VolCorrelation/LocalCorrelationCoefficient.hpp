@@ -119,7 +119,7 @@ inline auto getLLC(const std::vector<ResultType> &fieldA,
   return 0;
 }
 
-template <typename T, typename ResultType = float>
+template <typename T, typename ResultType = double>
 auto calcLocalCorrelationCoefficient(const std::vector<T *> &fields,
                                      uint32_t width, uint32_t height,
                                      uint32_t depth, int windowSize = 3)

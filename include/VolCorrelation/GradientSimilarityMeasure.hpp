@@ -105,7 +105,7 @@ auto calculatePairSimilarity(const Vec3<ResultType> &gi,
   return pow(result, sensitivity);
 }
 
-template <typename T, typename ResultType = float>
+template <typename T, typename ResultType = double>
 auto calculateGradientSimilarity(const std::vector<T *> fields, uint32_t width,
                                  uint32_t height, uint32_t depth,
                                  int sensitivity = 2)

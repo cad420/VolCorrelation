@@ -7,10 +7,10 @@ using namespace std;
 using namespace VolCorrelation;
 
 auto main() -> int {
-  vector<float> A(100, 1.0f);
-  vector<float> B(100, 0.0f);
+  vector<double> A(100, 1.0);
+  vector<double> B(100, 0.0);
 
-  vector<float *> fields = {A.data(), B.data()};
+  vector<double *> fields = {A.data(), B.data()};
   const auto res1 = calculateGradientSimilarity(fields, 100, 1, 1);
   for (auto v : res1) {
     cout << v << " ";

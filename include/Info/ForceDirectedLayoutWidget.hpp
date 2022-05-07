@@ -38,6 +38,7 @@ class ForceDirectedLayout : public QWidget {
 public:
   std::vector<ForceCluster> clusters;
   std::vector<ForceCircle> circles;
+  ForceCircle* selected = nullptr;
   std::vector<std::vector<double>> distances;
   ForceDirectedLayout(): clusters(), circles(), distances() {}
   void init(const std::vector<std::array<double, 2>> &particles,
@@ -105,12 +106,13 @@ protected:
         if (c.selected) {
           painter.setBrush(QBrush(Qt::black, Qt::SolidPattern));
           painter.setPen(Qt::white);
-        } else {
-          if (c.isMax) {
-            painter.setBrush(QBrush(Qt::black, Qt::SolidPattern));
-            painter.drawEllipse(c.x - c.radius - 5, c.y - c.radius - 5,
-                                c.radius * 2 + 10, c.radius * 2 + 10);
-          }
+        }
+        else {
+//          if (c.isMax) {
+//            painter.setBrush(QBrush(Qt::black, Qt::SolidPattern));
+//            painter.drawEllipse(c.x - c.radius - 5, c.y - c.radius - 5,
+//                                c.radius * 2 + 10, c.radius * 2 + 10);
+//          }
           painter.setBrush(QBrush(cluster.color, Qt::SolidPattern));
           painter.setPen(Qt::black);
         }
@@ -121,12 +123,36 @@ protected:
       }
     }
   }
+  bool first;
+  void mouseMoveEvent(QMouseEvent* event) override{
+    const auto x = event->x();
+    const auto y = event->y();
+    static int last_x = 0;
+    static int last_y = 0;
 
+
+    if(first){
+      last_x = x;
+      last_y = y;
+      first = false;
+    }
+    const auto dx = x - last_x;
+    const auto dy = y - last_y;
+    last_x = x;
+    last_y = y;
+    if(!selected) return;
+    selected->x += dx;
+    selected->y += dy;
+    update();
+  }
+  void mouseReleaseEvent(QMouseEvent* event) override{
+    selected = nullptr;
+  }
   void mousePressEvent(QMouseEvent *event) override {
     const auto x = event->x();
     const auto y = event->y();
     auto find = false;
-    ForceCircle *selected = nullptr;
+    selected = nullptr;
     for (auto i = circles.rbegin(); i != circles.rend(); i++) {
       auto &circle = *i;
       circle.selected = false;
@@ -136,7 +162,9 @@ protected:
         selected = &circle;
       }
     }
-
+    if(find){
+      first = true;
+    }
     if (!find) {
       for (int i = static_cast<int>(circles.size()) - 1; i >= 0; i--) {
         auto &circle = circles[i];
@@ -144,13 +172,14 @@ protected:
         circle.radius = circle.entropy / cluster.max * 20 + 10, 0.0;
         circle.isMax = circle.entropy == cluster.max;
       }
-    } else {
+    }
+    else {
       const auto &cluster = clusters[selected->belong];
       auto maxIdx = cluster.nodes[0];
       if (selected->id == circles[maxIdx].id && cluster.nodes.size() > 1) {
         maxIdx = cluster.nodes[1];
       }
-      for (auto idx : cluster.nodes) {
+      for (size_t idx = 0; idx < circles.size();idx++) {
         auto &circle = circles[idx];
         if (circle.id != selected->id) {
           auto first = circle.id < selected->id ? circle.id : selected->id;
@@ -160,7 +189,9 @@ protected:
             maxIdx = idx;
           }
         } else {
-          circle.radius = 30;
+//          circle.radius = 30;
+          circle.radius = circle.entropy / cluster.max * 20 + 10, 0.0;
+          circle.isMax = circle.entropy == cluster.max;
         }
       }
 

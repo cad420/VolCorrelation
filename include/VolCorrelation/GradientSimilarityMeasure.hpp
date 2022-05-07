@@ -3,7 +3,8 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
-
+#include <iostream>
+#include <omp.h>
 namespace VolCorrelation {
 
 #ifndef VolCorrelation_Vec3
@@ -59,7 +60,8 @@ auto calculateGradient(const ResultType *field, const Vec3<uint32_t> &pos,
         if ((pos.y == 0 && y == -1) || (pos.y == maxY - 1 && y == 1)) {
           valueY = field[index];
         } else {
-          valueY = field[index + y * maxX];
+          int d = index + y * maxX;
+          valueY = field[d];
         }
         gradient.y += ky[x + 1][y + 1][z + 1] * valueY;
 
@@ -137,14 +139,17 @@ auto calculateGradientSimilarity(const std::vector<T *> fields, uint32_t width,
 
   for (auto i = 0ul; i < fields.size(); i++) {
     for (auto j = i + 1; j < fields.size(); j++) {
-      Vec3<uint32_t> pos;
+
       size_t index = 0;
       auto fieldA = normalizeds[i].data();
       auto fieldB = normalizeds[j].data();
-      for (pos.z = 0; pos.z < depth; pos.z++) {
-        for (pos.y = 0; pos.y < height; pos.y++) {
-          for (pos.x = 0; pos.x < width; pos.x++) {
+#pragma omp parallel for
+      for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+          for (int x = 0; x < width; x++) {
             // calculate gradients
+            Vec3<uint32_t> pos(x,y,z);
+            auto index = (size_t)z * width * height + y * width + x;
             auto gi = calculateGradient<ResultType>(fieldA, pos, dimensions,
                                                     index, offsetZ);
             auto gj = calculateGradient<ResultType>(fieldB, pos, dimensions,
@@ -153,7 +158,7 @@ auto calculateGradientSimilarity(const std::vector<T *> fields, uint32_t width,
             auto similarity = calculatePairSimilarity(gi, gj, sensitivity);
             const auto exist = result[index];
             result[index] = fmin(exist, similarity);
-            index++;
+//            index++;
           }
         }
       }

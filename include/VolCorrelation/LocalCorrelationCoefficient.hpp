@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
-
+#include <omp.h>
 namespace VolCorrelation {
 
 #ifndef VolCorrelation_Vec3
@@ -155,16 +155,17 @@ auto calcLocalCorrelationCoefficient(const std::vector<T *> &fields,
 
   for (auto i = 0; i < fields.size(); i++) {
     for (auto j = i + 1; j < fields.size(); j++) {
-      auto pos = Vec3<uint32_t>();
-      auto index = 0ULL;
-      for (pos.z = 0; pos.z < depth; pos.z++) {
-        for (pos.y = 0; pos.y < height; pos.y++) {
-          for (pos.x = 0; pos.x < width; pos.x++) {
-            const auto value = getLLC(normalizeds[i], normalizeds[j], pos,
+//      auto index = 0ULL;
+#pragma omp parallel for
+      for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+          for (int x = 0; x < width; x++) {
+            auto index = (size_t)z * width * height + y * width + x;
+            const auto value = getLLC(normalizeds[i], normalizeds[j], Vec3<uint32_t>(x,y,z),
                                       dimensions, offsetXY, windowSize);
             const auto exist = result[index];
             result[index] = exist < value ? exist : value;
-            index++;
+//            index++;
           }
         }
       }

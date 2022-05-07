@@ -7,113 +7,154 @@
 #include "Info/ForceDirected.hpp"
 #include <QApplication>
 #include <fstream>
+#include <QListWidget>
+#include <QPushButton>
+#include <QFileDialog>
+
 using namespace::std;
-int main(int argc,char** argv){
-  QApplication app(argc,argv);
+struct VolumeData {
+  std::vector<uint8_t> data;
+  std::string name;
+  std::vector<size_t> histogram;
+  double entropy = 0.0;
+};
+class Widget: public QWidget{
+public:
+  Widget(){
+    volume_list = new QListWidget(this);
+    volume_list->setGeometry(50,50,300,300);
+    load_volume_pb = new QPushButton("load",this);
+    load_volume_pb->setGeometry(50,400,100,20);
+    compute_pb = new QPushButton("compute",this);
+    compute_pb->setGeometry(250,400,100,20);
+    connect(load_volume_pb,&QPushButton::clicked,this,[this](){
+      auto path = QFileDialog::getOpenFileNames(this,
+                                               QStringLiteral("Load Volume"),
+                                               QStringLiteral("E:/Volume/"),
+                                               QStringLiteral("(*.*)"));
+      for(auto& p:path){
+        if(!p.isEmpty()){
+          loadVolume(p.toStdString());
+        }
+      }
+    });
+    connect(compute_pb,&QPushButton::clicked,this,[this](){
+      draw();
+    });
+    dendrogram = new Info::ClusteringDendrogram();
+    force_directed_layout = new Info::ForceDirectedLayout();
 
-  // create QT widget
-  auto dendrogram = new Info::ClusteringDendrogram();
-  auto force_directed_layout = new Info::ForceDirectedLayout();
-
-  // prepare volumes and histogram
-  struct VolumeData {
-    std::vector<uint8_t> data;
-    std::string name;
-    std::vector<size_t> histogram;
-    double entropy = 0.0;
-  };
-  std::vector<VolumeData> volumes;
-  // ...
-  int volume_x = 500, volume_y = 500, volume_z = 100;
-  size_t total = (size_t)volume_x * volume_y * volume_z;
-  std::vector<std::string> volume_names = {
-      "_SPEEDc21.raw","Pf21.raw","QCLOUDf21.raw","QVAPORf21.raw","TCc21.raw"
-  };
-  std::string data_path = "E:/Volume/buffer_data21/";
-  int volume_count = volume_names.size();
-  for(int i = 0; i < volume_count; i++){
-    volumes.emplace_back();
-    auto& volume = volumes.back();
-    volume.data.resize(total);
-    volume.name = volume_names[i].substr(0,volume_names[i].length() - 4);
-    std::ifstream in(data_path + volume_names[i],std::ios::binary);
-    //if not uint8 should call Info::ConvertData to convert
-    in.read(reinterpret_cast<char*>(volume.data.data()),total);
+  }
+  void loadVolume(const std::string& path){
+    std::ifstream in(path,std::ios::binary);
     if(!in.is_open()){
       std::cerr<<"failed to open"<<std::endl;
       exit(1);
     }
+    auto p = path.find_last_of("/");
+    auto volume_name = path.substr(p+1);
+    volume_list->addItem(QString(volume_name.c_str()));
+    volumes.emplace_back();
+    auto& volume = volumes.back();
+    volume.data.resize(total);
+    volume.name = volume_name.substr(0,volume_name.length() - 4);
+
+    //if not uint8 should call Info::ConvertData to convert
+    in.read(reinterpret_cast<char*>(volume.data.data()),total);
+
     volume.histogram = Info::CountValue(volume.data);
     volume.entropy = Info::CalculateEntropy(volume.histogram,total);
   }
-
-  // prepare container to hold mutual informations and distance
-  vector<vector<double>> MI(volumes.size()), distances(volumes.size());
-  for (size_t i = 0; i < volumes.size(); i++) {
-    MI[i].resize(volumes.size(), 0);
-    distances[i].resize(volumes.size(), 0);
+  void clear(){
+    volumes.clear();
+    volume_list->clear();
   }
-
-  // calculate mutual information
-  auto min = FLT_MAX;
-  for (size_t i = 0; i < volumes.size(); i++) {
-    auto &first = volumes[i];
-    for (size_t j = i + 1; j < volumes.size(); j++) {
-      auto &second = volumes[j];
-      auto I = Info::CalculateMutationInformation(
-          first.data.data(), second.data.data(), first.histogram, second.histogram, total);
-      MI[i][j] = I;
-      if (I < min && (0 != min)) {
-        min = I;
+  void draw(){
+    // prepare container to hold mutual informations and distance
+    vector<vector<double>> MI(volumes.size()), distances(volumes.size());
+    for (size_t i = 0; i < volumes.size(); i++) {
+      MI[i].resize(volumes.size(), 0);
+      distances[i].resize(volumes.size(), 0);
+    }
+    // calculate mutual information
+    auto min = FLT_MAX;
+    for (size_t i = 0; i < volumes.size(); i++) {
+      auto &first = volumes[i];
+      for (size_t j = i + 1; j < volumes.size(); j++) {
+        auto &second = volumes[j];
+        auto I = Info::CalculateMutationInformation(
+            first.data.data(), second.data.data(), first.histogram, second.histogram, total);
+        MI[i][j] = I;
+        if (I < min && (0 != min)) {
+          min = I;
+        }
       }
     }
-  }
-
-  // calculate distance, use reverse of MI and map them to 0~100
-  for (size_t i = 0; i < volumes.size(); i++) {
-    for (size_t j = i + 1; j < volumes.size(); j++) {
-      auto I = MI[i][j];
-      if (I == 0) {
-        distances[i][j] = 100.0;
-      } else {
-        distances[i][j] = 100.0 * min / I;
+    // calculate distance, use reverse of MI and map them to 0~100
+    for (size_t i = 0; i < volumes.size(); i++) {
+      for (size_t j = i + 1; j < volumes.size(); j++) {
+        auto I = MI[i][j];
+        if (I == 0) {
+          distances[i][j] = 100.0;
+        } else {
+          distances[i][j] = 100.0 * min / I;
+        }
       }
     }
+
+    const auto k = static_cast<size_t>(volumes.size()-1);
+    auto cluster = make_unique<Info::HierarchicalCluster>();
+    cluster->process(distances, k);
+    auto leaves = cluster->getLeaves();
+
+    // prepare colors
+    //  auto colors = rndColors(k);
+    std::vector<QColor> colors(k);
+    for(auto& color:colors){
+      color.setRgb(rand()%255,rand()%255,rand()%255);
+    }
+    auto names = vector<string>();
+    for (auto &volume : volumes) {
+      names.push_back(volume.name);
+    }
+
+    auto entropys = vector<double>();
+    for (auto &volume : volumes) {
+      entropys.push_back(volume.entropy);
+    }
+
+    // calculate particles in force directed layout
+    const auto width = 400;
+    const auto height = 600;
+    auto particles = Info::CalculateForceDirected(distances, width, height);
+
+    // display
+    force_directed_layout->init(particles, entropys, leaves, distances, colors,k);
+    force_directed_layout->update();
+    force_directed_layout->show();
+
+    dendrogram->init(std::move(cluster), colors, names);
+    dendrogram->update();
+    dendrogram->show();
   }
+private:
 
-  const auto k = static_cast<size_t>(4);
-  auto cluster = make_unique<Info::HierarchicalCluster>();
-  cluster->process(distances, k);
-  auto leaves = cluster->getLeaves();
+  QListWidget* volume_list;
+  QPushButton* load_volume_pb;
+  QPushButton* compute_pb;
+  Info::ClusteringDendrogram* dendrogram;
+  Info::ForceDirectedLayout* force_directed_layout;
+  std::vector<VolumeData> volumes;
+  const int volume_x = 500, volume_y = 500, volume_z = 100;
+  const size_t total = (size_t)volume_x * volume_y * volume_z;
+};
 
-  // prepare colors
-//  auto colors = rndColors(k);
-  std::vector<QColor> colors(k);
-  for(auto& color:colors){
-    color.setRgb(rand()%255,rand()%255,rand()%255);
-  }
-  auto names = vector<string>();
-  for (auto &volume : volumes) {
-    names.push_back(volume.name);
-  }
+int main(int argc,char** argv){
+  QApplication app(argc,argv);
 
-  auto entropys = vector<double>();
-  for (auto &volume : volumes) {
-    entropys.push_back(volume.entropy);
-  }
+  auto w = new Widget();
+  w->setFixedSize(400,500);
+  w->show();
 
-  // calculate particles in force directed layout
-  const auto width = 400;
-  const auto height = 600;
-  auto particles = Info::CalculateForceDirected(distances, width, height);
-
-  // display
-  force_directed_layout->init(particles, entropys, leaves, distances, colors,k);
-  force_directed_layout->update();
-  force_directed_layout->show();
-
-  dendrogram->init(std::move(cluster), colors, names);
-  dendrogram->update();
-  dendrogram->show();
   return app.exec();
 }

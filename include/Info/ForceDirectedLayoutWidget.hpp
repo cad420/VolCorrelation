@@ -60,14 +60,19 @@ public:
         cluster.max = entropys[node->id];
       }
     }
-
+    int node_count = nodes.size();
+    float r = std::min(QWidget::height(),QWidget::width()) * 0.5 * 0.6;
+    float degree = 2 * M_PI / node_count;
+    int i = 0;
     for (auto &node : nodes) {
       const auto entropy = entropys[node->id];
       const auto &particle = particles[node->id];
       const auto clusterId = node->belong;
       auto &cluster = clusters[clusterId];
       const auto isMax = entropy == cluster.max;
-      circles.emplace_back(node->id, particle[0], particle[1],
+      auto x = QWidget::width() * 0.5 + r * sin(degree * i);
+      auto y = QWidget::height() * 0.5 + r * cos(degree * i++);
+      circles.emplace_back(node->id, x, y,
                            entropy / cluster.max * 15 + 10, isMax, entropy,
                            clusterId);
       cluster.nodes.push_back(circles.size() - 1);

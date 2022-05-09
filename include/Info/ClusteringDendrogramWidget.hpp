@@ -64,7 +64,7 @@ inline void draw_tree(QPainter &painter, const Info::Node *node, int &offset,
     auto rightPos = positions[node->right];
 
     position[0] = (leftPos[0] + rightPos[0]) / 2;
-    position[1] = yBegin - static_cast<int>(std::sqrt(node->distance * 10) * 2 + 1);
+    position[1] = yBegin - static_cast<int>(std::sqrt(node->distance * 10) * 10 + 10);
 
     if (node->belong != -1) {
       auto color = colors[node->belong];
